@@ -58,6 +58,12 @@ const fetcherAPI = {
   post(url, data) {
     return fetcher(url, { method: 'POST', body: data });
   },
+  delete(url, data) {
+    return fetcher(url, { method: 'DELETE', body: data });
+  },
+  put(url, data) {
+    return fetcher(url, { method: 'PUT', body: data });
+  },
 };
 
 export default fetcherAPI;

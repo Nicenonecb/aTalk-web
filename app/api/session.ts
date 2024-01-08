@@ -16,6 +16,10 @@ const sessionApi = {
     return await fetcherAPI.post('/v1/sessions', data);
   },
 
+  //删除
+  deleteSession: async (id: string) => {
+    return await fetcherAPI.delete(`/v1/sessions/${id}`, null);
+  },
 };
 
 
