@@ -35,7 +35,6 @@ export default function Sidebar() {
 
     getSessionsList().then(r => {
       if (isMounted) {
-        console.log(r);
         setSessionList(r || []); // 防止r为null或undefined
       }
     });

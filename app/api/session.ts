@@ -15,11 +15,14 @@ const sessionApi = {
   createSession: async (data: Session) => {
     return await fetcherAPI.post('/v1/sessions', data);
   },
-
+  getSessionDetailById: async (id: string) => {
+    return await fetcherAPI.get(`/v1/sessions/${id}/details`, null);
+  },
   //删除
   deleteSession: async (id: string) => {
     return await fetcherAPI.delete(`/v1/sessions/${id}`, null);
   },
+
 };
 
 

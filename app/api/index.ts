@@ -25,6 +25,8 @@ function fetcher(url, options = {}) {
   //如果是本地开发环境，添加前缀
   if (process.env.NODE_ENV === 'development') {
     url = `http://127.0.0.1:8080${url}`;
+  } else {
+    url = `https://aitalk.win${url}`;
   }
 
   // 根据请求类型处理 URL 和 Body
