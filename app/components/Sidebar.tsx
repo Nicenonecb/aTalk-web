@@ -33,11 +33,9 @@ export default function Sidebar() {
 
     let isMounted = true; // 标记组件是否挂载
 
-    getSessionsList().then(r => {
-      if (isMounted) {
-        setSessionList(r || []); // 防止r为null或undefined
-      }
-    });
+    if (isMounted) {
+      getSessionsList().then();
+    }
 
     // 清理函数
     return () => {
@@ -54,6 +52,7 @@ export default function Sidebar() {
   const closeCreateSessionModal = () => {
     setIsModalVisible(false);
     form.resetFields();
+
   };
 
   const handleFormFinish = async (values) => {
@@ -62,6 +61,7 @@ export default function Sidebar() {
     if (code === 200) {
       message.success('创建成功');
     }
+    getSessionsList().then();
     router.push(`/session/${data.ID}`);
     closeCreateSessionModal(); // 关闭模态框
   };
@@ -78,7 +78,7 @@ export default function Sidebar() {
   const getSessionsList = async () => {
     const { data, code } = await sessionApi.getSession();
     if (code === 200) {
-      return data;
+      setSessionList(data || []);
     }
   };
 

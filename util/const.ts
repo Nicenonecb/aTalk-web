@@ -1,0 +1,5 @@
+const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+const OPENAI_API_URL = process.env.NEXT_PUBLIC_OPENAI_API_URL;
+
+
+export { OPENAI_API_KEY, OPENAI_API_URL };

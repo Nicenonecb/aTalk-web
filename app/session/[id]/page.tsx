@@ -1,39 +1,41 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { HeartOutlined, SoundOutlined, TranslationOutlined } from '@ant-design/icons';
 import sessionApi from '@/app/api/session';
 import ttsFunc from '@/util/ttsFunc';
 import { Button } from 'antd';
-import { Icon } from '@lobehub/ui';
 import { Mic, StopCircle } from 'lucide-react';
 import { useOpenAISTT } from '@lobehub/tts/react';
 import gptApi from '@/app/api/gpt';
+import { OPENAI_API_KEY, OPENAI_API_URL } from '@/util/const';
 
+// import { OPENAI_API_ENDPOINT }
 interface SessionContent {
   type: string;
   content: string;
-  url?: string | undefined | null;
+  url?: any;
   isRealtime?: boolean;
 }
 
 export default function Sessions({ params }: { params: { id: string } }) {
 
-  const [ttsAudioUrl, setTtsAudioUrl] = useState('' as string | undefined | null);
+  const [ttsAudioUrl, setTtsAudioUrl] = useState(null);
   const [sessionContentList, setSessionContentList] = useState([] as SessionContent[]);
   const [ttsText, setTtsText] = useState('');
   // 后面改成从后端获取
   const [language, setLanguage] = useState('en-US');
   const [isTranscriptionComplete, setIsTranscriptionComplete] = useState(false);
-
+  //
+  // console.log(OPENAI_API_KEY, OPENAI_API_URL);
   const api: any =
     {
       OPENAI_API_KEY: {
         label: 'OPENAI_API_KEY',
-        value: 'sk-rwQ9gJHBE988E149123eT3BLBKFJ07c441Fb11914E3c8af1',
+        value: OPENAI_API_KEY,
       },
       OPENAI_PROXY_URL: {
         label: 'OPENAI_PROXY_URL',
-        value: 'https://apic.ohmygpt.com/',
+        value: process.env.OPENAI_API_URL,
       },
       serviceUrl: '',
     };
@@ -43,13 +45,15 @@ export default function Sessions({ params }: { params: { id: string } }) {
       locale: 'en-US',
     };
 
-  const { text, start, stop, isLoading, isRecording, url, formattedTime, response } = useOpenAISTT(locale, {
+  const { text, start, stop, isLoading, isRecording, url, formattedTime } = useOpenAISTT(locale, {
     api,
   });
 
 
   useEffect(() => {
-    if (!isRecording && text && isTranscriptionComplete && !isLoading) {
+
+    if (!isRecording && text && isTranscriptionComplete && url) {
+      console.log(url, 'url');
       setSessionContentList(prevList => {
         const newList = prevList.map(item => {
           if (item.isRealtime) {
@@ -62,7 +66,7 @@ export default function Sessions({ params }: { params: { id: string } }) {
       getGPtRes().then();
       setIsTranscriptionComplete(false);
     }
-  }, [isRecording, text, isTranscriptionComplete, isLoading]);
+  }, [isRecording, text, isTranscriptionComplete, isLoading, url]);
 
 
   useEffect(() => {
@@ -78,48 +82,54 @@ export default function Sessions({ params }: { params: { id: string } }) {
   }, [params.id]);
   const getGPtRes = async () => {
     const { data, code } = await gptApi.getGpt({ content: text });
+    const gptResUrl = await ttsFunc(data.content);
     if (code === 200) {
       const gptItem = {
         type: 'tutor',
         content: data.content,
+        url: gptResUrl,
       };
+
       setSessionContentList(prevList => [...prevList, gptItem]);
       setTtsText(data.content);
+      setTtsAudioUrl(gptResUrl);
     }
   };
 
 // 第一次反馈播放
   useEffect(() => {
-    // if (ttsAudioUrl) {
-    //   const audio = new Audio(ttsAudioUrl);
-    //   audio.play().catch(error => console.error('Audio play failed', error));
-    // }
+    if (ttsAudioUrl) {
+      const audio = new Audio(ttsAudioUrl);
+      audio.play().catch(error => console.error('Audio play failed', error));
+    }
   }, [ttsAudioUrl]);
 
-
-  //生成语音文件的url
-  useEffect(() => {
-    if (ttsText) {
-      const fetchTTS = async () => {
-        try {
-          const audioUrl: Promise<string | null> | '' = await ttsFunc(ttsText);
-          setTtsAudioUrl(audioUrl);
-        } catch (error) {
-          console.error('Error in TTS:', error);
-        }
-      };
-
-      fetchTTS().then();
-    }
-  }, [ttsText]);
+  //
+  // //生成语音文件的url
+  // useEffect(() => {
+  //   if (ttsText) {
+  //     const fetchTTS = async () => {
+  //       try {
+  //         const audioUrl: Promise<string | null> | '' = await ttsFunc(ttsText);
+  //         setTtsAudioUrl(audioUrl);
+  //       } catch (error) {
+  //         console.error('Error in TTS:', error);
+  //       }
+  //     };
+  //
+  //     fetchTTS().then();
+  //   }
+  // }, [ttsText]);
   const getFistGPTRes = async (id) => {
     const { data, code } = await sessionApi.getSessionDetailById(id);
     if (code === 200) {
+      const gptResUrl: Promise<string | null> | '' = await ttsFunc(data.content);
       const gptItem = {
         type: 'tutor',
         content: data.content,
-
+        url: gptResUrl,
       };
+      setTtsAudioUrl(gptResUrl);
       setSessionContentList([gptItem]);
       setTtsText(data.content);
     }
@@ -142,80 +152,53 @@ export default function Sessions({ params }: { params: { id: string } }) {
   const handleStop = () => {
     stop(); // 调用原始的 stop 方法
     setIsTranscriptionComplete(true);
-    // setSessionContentList(prevList => [...prevList, { type: 'stu', content: text, url: url }]);
-    // getGPtRes().then();
   };
 
   const handleStart = () => {
     start();
     setSessionContentList(prevList => [
       ...prevList,
-      { type: 'stu', content: '', url: undefined, isRealtime: true }, // 添加实时 STT 条目
+      { type: 'stu', content: '', isRealtime: true }, // 添加实时 STT 条目
     ]);
   };
 
 
-  const playStuAudio = (urls) => {
-    console.log('url', url, urls);
-    if (urls) {
-      const audio = new Audio(urls);
-      audio.play().catch(error => console.error('stuAudio play failed', error));
+  const playAudio = (value) => {
+    console.log(OPENAI_API_KEY, OPENAI_API_URL);
+    if (value) {
+      const audio = new Audio(value);
+      audio.play().catch(error => console.error(' play failed', error));
     } else {
-      console.error('Invalid audio URL:', urls);
+      console.error('Invalid audio URL:', value);
     }
   };
   //
   return (
 
-    <div className='bg-black h-screen w-full  p-4 text-white flex flex-col justify-between'>
+    <div className='bg-black h-screen w-full p-4 text-white flex flex-col justify-between'>
       {/* 聊天气泡 */}
-      <div className='space-y-2 flex flex-col gap-5  overflow-auto '>
-        {
-          sessionContentList.map((item, index) => {
-            const playAudio = (value) => {
-              if (ttsAudioUrl) {
-                const audio = new Audio(value);
-                audio.play().catch(error => console.error('Audio play failed', error));
-              }
-            };
-            if (item.type === 'tutor') {
-              return (
-                <div className='flex items-center space-x-2 ' key={index}>
-                  <div className='w-[800px] rounded-lg border border-gray-600 p-4'>
-                    <p>{item.content}</p>
-
-                    <div className='flex gap-5 text-base'>
-                      <SoundOutlined onClick={() => playAudio(item.url)} />
-                      <TranslationOutlined />
-                      <HeartOutlined />
-                    </div>
-                  </div>
-                </div>
-              );
-            } else {
-              return (
-                <div className='flex items-center justify-end space-x-2' key={index}>
-                  <div className='w-[800px] rounded-lg border border-gray-600 p-4'>
-                    <p>{item.content}</p>
-
-                    <div className='flex gap-5 text-base'>
-                      <SoundOutlined onClick={() => playStuAudio(item.url)} />
-                      <TranslationOutlined />
-                      <HeartOutlined />
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-          })
-        }
+      <div className='space-y-2 flex flex-col gap-5 overflow-auto'>
+        {sessionContentList.map((item, index) => (
+          <div className={`flex items
+-center ${item.type === 'tutor' ? 'justify-start' : 'justify-end'} space-x-2`} key={index}>
+            <div className='w-[800px] rounded-lg border border-gray-600 p-4'>
+              <p>{item.content}</p>
+              <div className='flex gap-5 text-base'>
+                <SoundOutlined onClick={() => playAudio(item.url)} />
+                <TranslationOutlined />
+                <HeartOutlined />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
 
+      {/* 录音控制按钮 */}
       <div className='flex items-center'>
         <div className='flex-1 rounded p-2 bg-gray-800'>
           {isRecording ? (
-            <Button block icon={<Icon icon={StopCircle} />} onClick={handleStop}>
+            <Button block icon={<StopCircle />} onClick={handleStop}>
               Stop {formattedTime}
             </Button>
           ) : isLoading ? (
@@ -223,7 +206,7 @@ export default function Sessions({ params }: { params: { id: string } }) {
               Recognition...
             </Button>
           ) : (
-            <Button block icon={<Icon icon={Mic} />} onClick={handleStart} type={'primary'}>
+            <Button block icon={<Mic />} onClick={handleStart} type='primary'>
               Recognition
             </Button>
           )}
@@ -231,4 +214,4 @@ export default function Sessions({ params }: { params: { id: string } }) {
       </div>
     </div>
   );
-};
+}
